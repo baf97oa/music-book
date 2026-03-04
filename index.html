@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>音乐练习册</title>
+
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<style>
+body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+    background:#000;
+    color:#fff;
+}
+
+/* ===== 顶部播放器 ===== */
+.player-area{
+    padding:16px;
+    background:#111;
+    position:sticky;
+    top:0;
+    z-index:10;
+}
+
+audio{
+    width:100%;
+}
+
+/* ===== 图片 ===== */
+img{
+    width:100%;
+    border-radius:18px;
+    margin-top:16px;
+}
+
+/* ===== 列表 ===== */
+.container{
+    padding:16px;
+}
+
+.song-item{
+    padding:14px;
+    border-radius:14px;
+    background:#1a1a1a;
+    margin-bottom:10px;
+    cursor:pointer;
+}
+
+.song-item.active{
+    background:#333;
+}
+
+/* ===== 按钮 ===== */
+.controls{
+    display:flex;
+    gap:10px;
+    margin-top:12px;
+}
+
+button{
+    padding:10px 14px;
+    border:none;
+    border-radius:10px;
+    background:#222;
+    color:white;
+    font-size:14px;
+}
+
+button:active{
+    background:#444;
+}
+
+</style>
+</head>
+<body>
+
+<!-- ================= 顶部播放器 ================= -->
+<div class="player-area">
+<audio id="player" controls></audio>
+
+<div class="controls">
+<button onclick="prevSong()">上一首</button>
+<button onclick="nextSong()">下一首</button>
+<button onclick="toggleLoop()" id="loopBtn">🔁 单曲</button>
+</div>
+
+<img id="score">
+</div>
+
+<!-- ================= 歌曲列表 ================= -->
+<div class="container">
+<div id="songList"></div>
+</div>
+
+<script>
+
+let songs = [];
+let current = 0;
+let loopMode = 0; 
+// 0 = 单曲
+// 1 = 单曲循环
+// 2 = 全部循环
+
+let player = document.getElementById("player");
+
+fetch("songs.json")
+.then(res => res.json())
+.then(data => {
+    songs = data.map(item => ({
+        title: item.title,
+        audio: item.audio,
+        image: item.image
+    }));
+    init();
+});
+
+function init(){
+
+    const list = document.getElementById("songList");
+    list.innerHTML = "";
+
+    songs.forEach((song,index)=>{
+        const div = document.createElement("div");
+        div.className = "song-item";
+        div.innerText = song.title;
+        div.onclick = ()=>loadSong(index,true);
+        list.appendChild(div);
+    });
+
+    const savedIndex = localStorage.getItem("lastSong");
+    const savedTime = localStorage.getItem("lastTime");
+
+    if(savedIndex){
+        loadSong(parseInt(savedIndex),false);
+        if(savedTime){
+            player.currentTime = savedTime;
+        }
+    }else{
+        loadSong(0,false);
+    }
+}
+
+function loadSong(index,autoPlay){
+
+    current = index;
+
+    player.src = songs[index].audio;
+    document.getElementById("score").src = songs[index].image;
+
+    document.querySelectorAll(".song-item")
+        .forEach(el=>el.classList.remove("active"));
+
+    document.querySelectorAll(".song-item")[index]
+        .classList.add("active");
+
+    localStorage.setItem("lastSong",index);
+
+    if(autoPlay){
+        player.play();
+    }
+}
+
+/* ===== 循环模式 ===== */
+function toggleLoop(){
+
+    loopMode++;
+    if(loopMode > 2){
+        loopMode = 0;
+    }
+
+    const btn = document.getElementById("loopBtn");
+
+    if(loopMode === 0){
+        btn.innerText = "🔁 单曲";
+        player.loop = false;
+    }
+    else if(loopMode === 1){
+        btn.innerText = "🔂 单曲循环";
+        player.loop = true;
+    }
+    else if(loopMode === 2){
+        btn.innerText = "🔁 全部循环";
+        player.loop = false;
+    }
+}
+
+player.addEventListener("ended",()=>{
+
+    if(loopMode === 1){
+        // 单曲循环已由 player.loop 处理
+        return;
+    }
+
+    if(loopMode === 2){
+        if(current < songs.length - 1){
+            nextSong();
+        }else{
+            loadSong(0,true);
+        }
+    }
+
+});
+
+player.addEventListener("timeupdate",()=>{
+    localStorage.setItem("lastTime",player.currentTime);
+});
+
+function prevSong(){
+    if(current > 0){
+        loadSong(current - 1,true);
+    }
+}
+
+function nextSong(){
+    if(current < songs.length - 1){
+        loadSong(current + 1,true);
+    }
+}
+
+</script>
+
+</body>
+</html>
